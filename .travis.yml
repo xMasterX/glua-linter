@@ -1,0 +1,48 @@
+os: osx
+
+addons:
+  homebrew:
+    update: true
+
+sudo: false
+
+cache:
+  directories:
+    - $TRAVIS_BUILD_DIR/.cabal-sandbox
+
+before_install:
+  - brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/fafd371c0dabedee7bed74fabd9d6f015104f108/Formula/ghc.rb
+  - brew install cabal-install --ignore-dependencies
+
+install:
+  - ghc --version
+  - cabal --version
+  - cabal update
+
+script:
+  - cabal sandbox init
+  - cabal install uu-interleaved-0.2.0.0
+  - cabal install uu-parsinglib-2.9.0
+  - cabal install happy
+  - cabal install --only-dependencies
+  - ./AGGenerator.sh
+  - cabal build glualint
+
+before_deploy:
+  - ./dist/build/glualint/glualint --version
+  - VERSION=$(dist/build/glualint/glualint --version)
+  - cp dist/build/glualint/glualint .
+  - zip "glualint-$VERSION-macos.zip" glualint
+  - strip glualint
+  - zip "glualint-stripped-$VERSION-macos.zip" glualint
+  - git config --local user.name "xMasterX"
+  - export TRAVIS_TAG=${TRAVIS_TAG:-$(date +'%Y.%m.%d')-$(git log --format=%h -1)}
+  - git tag $TRAVIS_TAG
+
+deploy:
+  provider: releases
+  api_key: "${GH_AUTOKEN}"
+  file:
+    - "glualint-$VERSION-macos.zip"
+    - "glualint-stripped-$VERSION-macos.zip"
+  skip_cleanup: true

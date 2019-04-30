@@ -1,0 +1,365 @@
+module {GLua.AG.AST}{}{}
+
+imports
+{
+import GLua.AG.Token
+import GLua.TokenTypes ()
+}
+
+type MStatList = [MStat]
+type MExprList = [MExpr]
+type FieldList = [Field]
+type MaybeMExpr = maybe MExpr
+type Declaration = (PrefixExp, MaybeMExpr)
+type VarsList  = [Declaration]
+type ExprSuffixList = [PFExprSuffix]
+data MElseIf | MElseIf pos :: Region elif :: ElseIf
+type ElseIf    = (MExpr, Block)
+type ElseIfList = [MElseIf]
+data MElse | MElse pos :: Region body :: Block
+type Else      = maybe MElse
+
+
+-- Root of the Abstract Syntax Tree
+data AST          | AST comments :: {[MToken]} chunk :: Block
+
+-- Block of code
+data Block        | Block  stats :: MStatList    ret :: AReturn
+
+data MStat        | MStat    pos :: Region  stat :: Stat
+
+-- Statement
+data Stat         -- a, b, c = ...
+                  | Def      vars :: VarsList
+                  -- local a,b,c, ... = ...
+                  | LocDef   vars :: VarsList
+                  -- Function call
+                  | AFuncCall  fn :: PrefixExp
+                  -- label
+                  | ALabel    lbl :: MToken
+                  -- break
+                  | ABreak
+                  -- continue
+                  | AContinue
+                  -- goto label
+                  | AGoto     lbl :: MToken
+                  -- do block end
+                  | ADo body :: Block
+                  -- while expr do block end
+                  | AWhile   cond :: MExpr      body :: Block
+                  -- repeat block until expr
+                  | ARepeat  body :: Block      cond :: MExpr
+                  -- if exp r then block [elseif expr then block] [else block] end
+                  | AIf      cond :: MExpr      body :: Block     elifs :: ElseIfList els :: Else
+                  -- for varname = expr, expr, expr? do block end, numeric for
+                  | ANFor    var  :: MToken      val :: MExpr        to :: MExpr step :: MExpr body :: Block
+                  -- for namelist in expr do block end
+                  | AGFor    vars :: {[MToken]} vals :: MExprList  body :: Block
+                  -- function funcname(parameters) block end
+                  | AFunc    name :: FuncName   args :: {[MToken]} body :: Block
+                  -- local function funcname(parameters) block end
+                  | ALocFunc name :: FuncName   args :: {[MToken]} body :: Block
+
+-- Return [values]
+data AReturn      | AReturn             pos    :: Region values :: MExprList
+                  | NoReturn
+
+-- Function names
+data FuncName     | FuncName            names  :: {[MToken]}    meta  :: (Maybe MToken) -- name(.name)*(:name)?
+
+-- Prefix expressions (vars or function calls)
+data PrefixExp    | PFVar               name   :: MToken  suffixes  :: ExprSuffixList
+                  | ExprVar             expr   :: MExpr   suffixes  :: ExprSuffixList -- (some .. expression)["with suffix"]
+
+-- Suffix of expression: Call(), :MetaCall(), [indexation] or .indexation
+data PFExprSuffix | Call                args   :: Args
+                  | MetaCall            fn     :: MToken     args   :: Args
+                  | ExprIndex           index  :: MExpr
+                  | DotIndex            index  :: MToken
+
+-- Expressions
+data MExpr        | MExpr               pos    :: Region expr   :: Expr
+
+data Expr         | ANil
+                  | AFalse
+                  | ATrue
+                  | ANumber             num    :: String
+                  | AString             str    :: MToken
+                  | AVarArg
+                  | AnonymousFunc       pars   :: {[MToken]} body   :: Block
+                  | APrefixExpr         pexpr  :: PrefixExp
+                  | ATableConstructor   fields :: FieldList
+                  | BinOpExpr           op     :: BinOp      left   :: MExpr right :: MExpr
+                  | UnOpExpr            op     :: UnOp       right  :: MExpr
+
+-- arguments of function call: fn(list, args), fn{table, args}, fn"string args"
+data Args         | ListArgs            args   :: MExprList
+                  | TableArg            arg    :: FieldList
+                  | StringArg           arg    :: MToken
+
+
+-- Fields of a table: {[expr] = expr, namedfield = expr, expr}
+data Field        | ExprField          key   :: MExpr  value        :: MExpr
+                  | NamedField         key   :: MToken value        :: MExpr
+                  | UnnamedField       value :: MExpr
+
+
+-- Binary operators
+data BinOp
+                  | AOr
+                  | AAnd
+                  | ALT
+                  | AGT
+                  | ALEQ
+                  | AGEQ
+                  | ANEq
+                  | AEq
+                  | AConcatenate
+                  | APlus
+                  | BinMinus
+                  | AMultiply
+                  | ADivide
+                  | AModulus
+                  | APower
+
+-- Unary operators
+data UnOp         | UnMinus
+                  | ANot
+                  | AHash
+
+
+
+deriving AST : Show
+deriving Block : Show
+deriving MStat : Show
+deriving MElse : Show
+deriving MElseIf : Show
+deriving Stat : Show
+deriving AReturn : Show
+deriving FuncName : Show
+deriving PrefixExp : Show
+deriving PFExprSuffix : Show
+deriving MExpr : Show
+deriving Expr : Show
+deriving Args : Show
+deriving Field : Show
+deriving BinOp : Show, Eq, Ord
+deriving UnOp : Show
+
+set StatementStuff  = Block MStatList MStat Stat AReturn
+set IfStuff         = MElseIf ElseIf ElseIfList Else MElse
+set ExprStuff       = PrefixExp PFExprSuffix MaybeMExpr MExpr Expr MExprList ExprSuffixList
+set VarStuff        = Args Field FieldList Declaration VarsList
+set AllStuff        = MStatList MExprList FieldList Declaration MaybeMExpr VarsList ExprSuffixList MElseIf ElseIf ElseIfList MElse Else AST Block MStat Stat AReturn FuncName PrefixExp PFExprSuffix MExpr Expr Args Field BinOp UnOp
+-- Semantics
+{-
+
+attr MStatList MExprList FieldList Declaration MaybeMExpr VarsList ExprSuffixList ElseIf ElseIfList Else AST Block MStat Stat AReturn FuncName PrefixExp PFExprSuffix MExpr Expr Args Field BinOp UnOp
+
+sem AST
+    | AST
+        lhs.something           =
+
+sem MStatList
+    | Cons
+        lhs.something           =
+    | Nil
+        lhs.something           =
+
+sem MExprList
+    | Cons
+        lhs.something           =
+    | Nil
+        lhs.something           =
+
+sem FieldList
+    | Cons
+        lhs.something           =
+    | Nil
+        lhs.something           =
+
+sem Declaration
+    | Tuple
+        lhs.something           =
+
+sem VarsList
+    | Cons
+        lhs.something           =
+    | Nil
+        lhs.something           =
+
+sem ExprSuffixList
+    | Cons
+        lhs.something           =
+    | Nil
+        lhs.something           =
+
+sem ElseIf
+    | Tuple
+        lhs.something           =
+
+sem ElseIfList
+    | Cons
+        lhs.something           =
+    | Nil
+        lhs.something           =
+
+sem Else
+    | Just
+        lhs.something           =
+    | Nothing
+        lhs.something           =
+
+
+sem Block
+    | Block
+        lhs.something           =
+
+sem MStat
+    | MStat
+        lhs.something           =
+
+sem Stat
+    | ASemicolon
+        lhs.something           =
+    | Def
+        lhs.something           =
+    | LocDef
+        lhs.something           =
+    | AFuncCall
+        lhs.something           =
+    | ALabel
+        lhs.something           =
+    | ABreak
+        lhs.something           =
+    | AContinue
+        lhs.something           =
+    | AGoto
+        lhs.something           =
+    | ADo
+        lhs.something           =
+    | AWhile
+        lhs.something           =
+    | ARepeat
+        lhs.something           =
+    | AIf
+        lhs.something           =
+    | ANFor
+        lhs.something           =
+    | AGFor
+        lhs.something           =
+    | AFunc
+        lhs.something           =
+    | ALocFunc
+        lhs.something           =
+
+sem AReturn
+    | AReturn
+        lhs.something           =
+    | NoReturn
+        lhs.something           =
+
+sem FuncName
+    | FuncName
+        lhs.something           =
+
+sem PrefixExp
+    | PFVar
+        lhs.something           =
+    | ExprVar
+        lhs.something           =
+
+sem PFExprSuffix
+    | Call
+        lhs.something           =
+    | MetaCall
+        lhs.something           =
+    | ExprIndex
+        lhs.something           =
+    | DotIndex
+        lhs.something           =
+
+sem MExpr
+    | MExpr
+        lhs.something           =
+
+sem Expr
+    | ANil
+        lhs.something           =
+    | AFalse
+        lhs.something           =
+    | ATrue
+        lhs.something           =
+    | ANumber
+        lhs.something           =
+    | AString
+        lhs.something           =
+    | AVarArg
+        lhs.something           =
+    | AnonymousFunc
+        lhs.something           =
+    | APrefixExpr
+        lhs.something           =
+    | ATableConstructor
+        lhs.something           =
+    | BinOpExpr
+        lhs.something           =
+    | UnOpExpr
+        lhs.something           =
+
+sem Args
+    | ListArgs
+        lhs.something           =
+    | TableArg
+        lhs.something           =
+    | StringArg
+        lhs.something           =
+
+sem Field
+    | ExprField
+        lhs.something           =
+    | NamedField
+        lhs.something           =
+    | UnnamedField
+        lhs.something           =
+
+sem BinOp
+    | APlus
+        lhs.something           =
+    | BinMinus
+        lhs.something           =
+    | AMultiply
+        lhs.something           =
+    | ADivide
+        lhs.something           =
+    | AModulus
+        lhs.something           =
+    | APower
+        lhs.something           =
+    | AConcatenate
+        lhs.something           =
+    | ALT
+        lhs.something           =
+    | ALEQ
+        lhs.something           =
+    | AGT
+        lhs.something           =
+    | AGEQ
+        lhs.something           =
+    | AEq
+        lhs.something           =
+    | ANEq
+        lhs.something           =
+    | AAnd
+        lhs.something           =
+    | AOr
+        lhs.something           =
+
+sem UnOp
+    | UnMinus
+        lhs.something           =
+    | ANot
+        lhs.something           =
+    | AHash
+        lhs.something           =
+-}
