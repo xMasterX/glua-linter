@@ -1,4 +1,4 @@
-glualint for Mac OS
+glualint for macOS
 ==========
 
 glualint - Linter and pretty printer for Garry's Mod's variant of Lua.
@@ -6,7 +6,7 @@ glualint - Linter and pretty printer for Garry's Mod's variant of Lua.
 # Installing into system
 1. Download the latest version of `glualint` from [the Releases page](https://github.com/xMasterX/glua-linter/releases)
 2. Place the `glualint` executable inside some folder.
-3. Add the folder you put `glualint` in to your `PATH`. How this is done differs per operating system. If you're not sure how to do this, please Google `"Add to PATH mac os"`.
+3. Add the folder you put `glualint` in to your `PATH`. How this is done differs per operating system. If you're not sure how to do this, please Google `"Add to PATH mac"`.
 4. Make sure you restart any terminals or text editors you currently have open.
 
 After performing these steps, you can run `glualint` from the terminal or let your text editor use it as your linter. **Failing to specifically perform the third step will make `glualint` very unlikely to work**.
