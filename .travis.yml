@@ -12,7 +12,7 @@ cache:
 
 before_install:
   - brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/fafd371c0dabedee7bed74fabd9d6f015104f108/Formula/ghc.rb
-  - brew install cabal-install --ignore-dependencies
+  - brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/0f006bf7c809955fc9db581a4ddd16655f075f61/Formula/cabal-install.rb --ignore-dependencies
 
 install:
   - ghc --version
